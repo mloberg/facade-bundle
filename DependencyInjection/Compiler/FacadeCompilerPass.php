@@ -6,6 +6,7 @@
 
 namespace Mlo\FacadeBundle\DependencyInjection\Compiler;
 
+use Mlo\FacadeBundle\MloFacadeBundle;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\Filesystem\Filesystem;
@@ -71,7 +72,7 @@ class FacadeCompilerPass implements CompilerPassInterface
         }
 
         $content = strtr($this->getStub(), [
-            '{{ NAMESPACE }}' => rtrim('Facades\\'.$namespace, '\\'),
+            '{{ NAMESPACE }}' => rtrim(MloFacadeBundle::FACADE_NAMESPACE.$namespace, '\\'),
             '{{ TARGET }}' => $class,
             '{{ CLASS }}' => $basename,
             '{{ SERVICE }}' => $service,

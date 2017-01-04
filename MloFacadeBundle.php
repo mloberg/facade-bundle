@@ -7,6 +7,8 @@
 namespace Mlo\FacadeBundle;
 
 use Mlo\FacadeBundle\DependencyInjection\Compiler\FacadeCompilerPass;
+use Symfony\Component\ClassLoader\Psr4ClassLoader;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
@@ -17,6 +19,13 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  */
 class MloFacadeBundle extends Bundle
 {
+    const FACADE_NAMESPACE = 'Facades\\';
+
+    /**
+     * @var Psr4ClassLoader
+     */
+    private $autoloader;
+
     /**
      * {@inheritdoc}
      */
@@ -24,7 +33,7 @@ class MloFacadeBundle extends Bundle
     {
         parent::build($container);
 
-        $cacheDir = $container->getParameter('kernel.cache_dir').'/facade';
+        $cacheDir = $this->getCacheDir($container);
 
         $container->addCompilerPass(new FacadeCompilerPass($cacheDir));
     }
@@ -35,5 +44,31 @@ class MloFacadeBundle extends Bundle
     public function boot()
     {
         FacadeFactory::setContainer($this->container);
+
+        $this->autoloader = new Psr4ClassLoader();
+        $this->autoloader->addPrefix(static::FACADE_NAMESPACE, $this->getCacheDir($this->container));
+        $this->autoloader->register();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function shutdown()
+    {
+        if ($this->autoloader) {
+            $this->autoloader->unregister();
+        }
+    }
+
+    /**
+     * Get cache dir
+     *
+     * @param ContainerInterface $container
+     *
+     * @return string
+     */
+    private function getCacheDir(ContainerInterface $container)
+    {
+        return $container->getParameter('kernel.cache_dir').'/facade';
     }
 }
