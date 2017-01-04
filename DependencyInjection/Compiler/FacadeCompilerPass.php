@@ -73,6 +73,7 @@ class FacadeCompilerPass implements CompilerPassInterface
 
         $content = strtr($this->getStub(), [
             '{{ NAMESPACE }}' => rtrim(MloFacadeBundle::FACADE_NAMESPACE.$namespace, '\\'),
+            '{{ METHODS }}' => implode("\n * ", $this->getMethodSignatures($class)),
             '{{ TARGET }}' => $class,
             '{{ CLASS }}' => $basename,
             '{{ SERVICE }}' => $service,
@@ -80,6 +81,109 @@ class FacadeCompilerPass implements CompilerPassInterface
 
         $this->filesystem->mkdir($path);
         $this->filesystem->dumpFile($filename, $content);
+    }
+
+    /**
+     * Generate method signatures for IDEs
+     *
+     * @param string $class
+     *
+     * @return string[]
+     */
+    private function getMethodSignatures($class)
+    {
+        $refClass = new \ReflectionClass($class);
+
+        $methods = [];
+
+        foreach ($refClass->getMethods() as $refMethod) {
+            if (!$refMethod->isPublic() || $refMethod->isConstructor()) {
+                continue;
+            }
+
+            $docBlock = $this->getMethodDocBlock($refMethod);
+
+            // Get parameters
+            preg_match_all('/@param ?([^\s]+)?\s*\$([^\s]+)/', $docBlock, $matches);
+
+            $params = array_combine($matches[2], $matches[1]);
+            $defaults = [];
+
+            foreach ($refMethod->getParameters() as $parameter) {
+                if ($parameter->isDefaultValueAvailable()) {
+                    $defaults[$parameter->getName()] = $parameter->getDefaultValue();
+                }
+            }
+
+            $parameters = [];
+
+            foreach ($params as $name => $type) {
+                $parameters[] = $param = trim(sprintf('%s $%s = %s', $type, $name, @$defaults[$name]), ' =');
+            }
+
+            // Get return type
+            preg_match('/@return ([^\s]+)/', $docBlock, $matches);
+            $returnType = @$matches[1] ?: 'void';
+
+            $methods[] = sprintf(
+                '@method static %s %s(%s)',
+                $returnType,
+                $refMethod->getName(),
+                implode(', ', $parameters)
+            );
+        }
+
+        return $methods;
+    }
+
+    /**
+     * Get method doc block
+     *
+     * @param \ReflectionMethod $method
+     *
+     * @return string
+     */
+    private function getMethodDocBlock(\ReflectionMethod $method)
+    {
+        $docBlock = $method->getDocComment();
+
+        if (preg_match('/@inheritdoc/i', $docBlock)) {
+            foreach ($this->getParents($method->getDeclaringClass()) as $parent) {
+                if ($parent->hasMethod($method->getName())) {
+                    return $this->getMethodDocBlock($parent->getMethod($method->getName()));
+                }
+            }
+        }
+
+        return $docBlock;
+    }
+
+    /**
+     * Get all parents for a class
+     *
+     * @param \ReflectionClass $class
+     *
+     * @return \ReflectionClass[]
+     */
+    private function getParents(\ReflectionClass $class)
+    {
+        $parents = [];
+
+        foreach ($class->getInterfaces() as $interface) {
+            $parents[] = $interface;
+
+            if ($parentInterface = $interface->getParentClass()) {
+                $parents = array_merge($parents, $this->getParents($parentInterface));
+            }
+        }
+
+        while ($parent = $class->getParentClass()) {
+            $parents[] = $parent;
+
+            $parents = array_merge($parents, $this->getParents($parent));
+        }
+
+        return $parents;
     }
 
     /**
@@ -97,6 +201,8 @@ namespace {{ NAMESPACE }};
 use Mlo\FacadeBundle\AbstractFacade;
 
 /**
+ * {{ METHODS }}
+ *
  * @see \{{ TARGET }}
  */
 class {{ CLASS }} extends AbstractFacade
