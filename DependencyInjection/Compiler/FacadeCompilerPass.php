@@ -97,7 +97,7 @@ class FacadeCompilerPass implements CompilerPassInterface
         $methods = [];
 
         foreach ($refClass->getMethods() as $refMethod) {
-            if (!$refMethod->isPublic() || $refMethod->isConstructor()) {
+            if (!$refMethod->isPublic() || $refMethod->isConstructor() || $refMethod->isStatic()) {
                 continue;
             }
 
@@ -110,8 +110,20 @@ class FacadeCompilerPass implements CompilerPassInterface
             $defaults = [];
 
             foreach ($refMethod->getParameters() as $parameter) {
+                $paramName = $parameter->getName();
+
                 if ($parameter->isDefaultValueAvailable()) {
-                    $defaults[$parameter->getName()] = $parameter->getDefaultValue();
+                    $defaultValue = $parameter->getDefaultValue();
+
+                    if ('string' === $params[$paramName]) {
+                        $defaultValue = sprintf('"%s"', $defaultValue);
+                    }
+
+                    $defaults[$paramName] = $defaultValue;
+                }
+
+                if ($parameterType = $parameter->getClass()) {
+                    $params[$paramName] = '\\'.$parameterType->getName();
                 }
             }
 

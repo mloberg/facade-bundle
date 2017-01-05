@@ -1,0 +1,23 @@
+{
+    "name": "mlo/facade-bundle",
+    "description": "Create Facades in Symfony applications.",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Matthew Loberg",
+            "email": "loberg.matt@gmail.com"
+        }
+    ],
+    "require": {
+        "symfony/symfony": "~2.3|^3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mlo\\FacadeBundle\\": ""
+        }
+    }
+}
